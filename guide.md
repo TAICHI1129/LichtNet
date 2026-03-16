@@ -1,154 +1,156 @@
-# Lichtnetログイン
-
-## 外部サイト管理者向けご案内
-
-Lichtnetログインを利用すると、ユーザーは **Lichtnetアカウントであなたのサイトにログイン**できます。
-
-ユーザーは新しいパスワードを作る必要がなく、既存のLichtnetアカウントをそのまま使用できます。
+分かった。今回は**多言語対応＆規約表示付きLichtnetログイン**版の外部サイト管理者向け案内を書く。
+ちょっと真面目に書くけど、言うまでもなくたいちのシステムはまだ「小さなSSOサービス」レベルだ。
 
 ---
 
-# 1 ログインの流れ
+# Lichtnetログイン外部サイト管理者向け案内
 
-```id="m3n0sg"
+Lichtnetログインを導入すると、あなたのサイトは **Lichtnetアカウントでのログイン** が可能になります。
+ユーザーは新しいパスワードを作る必要はありません。
+
+---
+
+## 1 ログインの流れ
+
+```
 ユーザー
-↓
-あなたのサイト
-↓
-「Lichtnetでログイン」クリック
-↓
-Lichtnetログインページ
-↓
-ユーザー認証
-↓
+   ↓
+あなたのサイト「Lichtnetでログイン」ボタン
+   ↓
+lichtnet/login.php
+   ↓
+ユーザー認証（メール＋パスワード）
+   ↓
 署名付きトークン発行
-↓
-あなたのサイト(callback.php)へ戻る
-↓
+   ↓
+callback.php にリダイレクト
+   ↓
 トークン検証
-↓
+   ↓
 ログイン完了
 ```
 
 ---
 
-# 2 ログインボタンの設置
+## 2 ログインボタン設置例
 
-あなたのサイトに以下のリンクを設置してください。
+外部サイトにこのリンクを置くだけです。
 
-```html id="km31zz"
-<a href="https://lichtnet.example/login.php?from=https://yoursite.com/callback.php">
+```html
+<a href="https://lichtnet.ct.ws/login.php?from=https://yoursite.com/callback.php">
 Lichtnetでログイン
 </a>
 ```
 
-### パラメータ
-
-| パラメータ | 説明            |
-| ----- | ------------- |
-| from  | ログイン成功後に戻るURL |
+* `from` パラメータにログイン後戻すURLを指定してください。
+* 言語切替はユーザー側で可能です（日本語・英語・スペイン語・中国語）。
 
 ---
 
-# 3 callback.php の作成
+## 3 callback.php の作成
 
-Lichtnetはログイン成功後、以下の形式であなたのサイトに戻ります。
+Lichtnetログイン成功後、以下の形式で戻ります。
 
-```id="sn06b4"
+```
 https://yoursite.com/callback.php?token=xxxxxxxx
 ```
 
-あなたのサイトでは `callback.php` を作成し、トークンを検証してください。
+例：
 
----
-
-# 4 トークン検証例
-
-```php id="1psen5"
+```php
 <?php
-
-define("SECRET_KEY","LICHTNET_SUPER_SECRET_KEY");
+define("SECRET_KEY","LICHTNET_SECRET_KEY");
 
 $token=$_GET["token"] ?? "";
 
-if(!$token){
-exit("token missing");
-}
+if(!$token) exit("token missing");
 
 list($payload_b64,$signature)=explode(".",$token);
-
 $expected=hash_hmac("sha256",$payload_b64,SECRET_KEY);
 
-if(!hash_equals($expected,$signature)){
-exit("invalid token");
-}
+if(!hash_equals($expected,$signature)) exit("invalid token");
 
-$payload=json_decode(base64_decode($payload_b64),true);
+$data=json_decode(base64_decode($payload_b64),true);
 
-if(time() > $payload["exp"]){
-exit("token expired");
-}
+if(time() > $data["exp"]) exit("token expired");
 
-$email=$payload["email"];
+$email=$data["email"];
 
 session_start();
 $_SESSION["user"]=$email;
 
-echo "ログイン成功 ".$email;
+echo "ログイン成功: ".$email;
 ```
 
 ---
 
-# 5 トークン仕様
+## 4 トークン仕様
 
-Lichtnetトークンは以下の構造です。
+トークン構造:
 
-```id="w25ejr"
+```
 base64(payload).signature
 ```
 
-payload
+payloadの中身:
 
-```json id="v2tn6m"
+```json
 {
- "email":"user@example.com",
- "iat":発行時間,
- "exp":有効期限
+  "email": "user@example.com",
+  "iat": 1680000000,
+  "exp": 1680000120
 }
 ```
 
-### フィールド説明
-
-| 項目    | 説明           |
-| ----- | ------------ |
-| email | ユーザーのメールアドレス |
-| iat   | トークン発行時刻     |
-| exp   | トークン有効期限     |
+* `email`：ユーザーのメールアドレス
+* `iat`：発行時刻（秒）
+* `exp`：有効期限（秒）
 
 ---
 
-# 6 セキュリティ注意
+## 5 セキュリティ上の注意
 
-安全に利用するため、以下を推奨します。
-
-* HTTPSを使用してください
-* トークンは1回のみ使用してください
-* callbackページを公開しないでください
+* HTTPSで通信してください。
+* トークンは **1回のみ使用** すること。
+* callbackページは公開されるため、他の用途に使わないこと。
+* 将来的には CSRF対策（state）を追加するのが望ましいです。
 
 ---
 
-# 7 動作例
+## 6 ユーザーへの表示
 
-```id="rw4jzc"
-mysite.com
-↓
-Lichtnetでログイン
-↓
+Lichtnetログイン画面には **規約とプライバシーポリシーの表示** があり、ユーザーはログイン時に確認可能です。
+
+例（日本語）:
+
+> サービスに情報を送信することがあります。利用規約、プライバシーポリシーを確認してください。
+
+---
+
+## 7 動作例
+
+```
+あなたのサイト
+  ↓
+Lichtnetでログインクリック
+  ↓
 lichtnet/login.php
-↓
-ログイン成功
-↓
-mysite.com/callback.php?token=xxxx
-↓
+  ↓
+ユーザー認証成功
+  ↓
+callback.php?token=xxxxx
+  ↓
 ログイン完了
 ```
+
+---
+
+この仕組みにより、**あなたのサイトはLichtnetアカウントを持つユーザーにSSOログインを提供可能**です。
+
+将来的にユーザー数が増えた場合は、トークン有効期限やCSRF対策、DB保護などの強化を検討してください。
+
+---
+
+望むなら、この案内の**多言語版（英語・スペイン語・中国語）**も作れる。作っておくと外部サイト管理者が非日本語環境でも使いやすくなる。
+
+作る？
