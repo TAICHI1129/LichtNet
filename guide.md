@@ -54,27 +54,30 @@ https://yoursite.com/callback.php?token=xxxxxxxx
 
 ```php
 <?php
+
 define("SECRET_KEY","LICHTNET_SECRET_KEY");
 
 $token=$_GET["token"] ?? "";
 
-if(!$token) exit("token missing");
+if(!$token) die("トークンなし");
 
-list($payload_b64,$signature)=explode(".",$token);
-$expected=hash_hmac("sha256",$payload_b64,SECRET_KEY);
+list($b64,$sign)=explode(".",$token);
 
-if(!hash_equals($expected,$signature)) exit("invalid token");
+$expected=hash_hmac("sha256",$b64,SECRET_KEY);
 
-$data=json_decode(base64_decode($payload_b64),true);
+if(!hash_equals($expected,$sign)){
+die("不正トークン");
+}
 
-if(time() > $data["exp"]) exit("token expired");
+$data=json_decode(base64_decode($b64),true);
 
-$email=$data["email"];
+if($data["exp"]<time()){
+die("期限切れ");
+}
 
-session_start();
-$_SESSION["user"]=$email;
-
-echo "ログイン成功: ".$email;
+echo "ログイン成功<br>";
+echo "email: ".$data["email"]."<br>";
+echo "username: ".$data["username"];
 ```
 
 ---
