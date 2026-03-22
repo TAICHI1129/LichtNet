@@ -1,3 +1,165 @@
+# Lichtnet Login Integration Guide (For External Site Administrators)
+
+By integrating Lichtnet Login,
+you can provide a **login feature using Lichtnet accounts** on your website.
+
+Users will not need to create new passwords, allowing for a smooth login experience.
+
+---
+
+## 1. How the Login Works
+
+The login process follows the steps below:
+
+1. The user clicks the “Login with Lichtnet” button
+2. The user is redirected to the Lichtnet login page
+3. User authentication (email address and password)
+4. Upon successful authentication, the user is redirected to the specified URL
+5. The token is received, and user information is retrieved
+
+---
+
+## 2. How to Add the Login Button
+
+Please place the following link on your site:
+
+```html
+<a href="https://lichtnet.ct.ws/login.php?from=https://yoursite.com/callback.php">
+   <img src="https://lichtnet.ct.ws/img/LoginBtn.png" alt="Login with Lichtnet" width="200" height="150">
+</a>
+```
+
+### Notes
+
+* Specify the return URL (callback) in the `from` parameter
+* This URL must be registered with Lichtnet in advance
+* HTTPS is strongly recommended
+
+---
+
+## 3. Implementing callback.php
+
+After a successful login, the user will be redirected to:
+
+```
+https://yoursite.com/callback.php
+```
+
+On this page, receive the token and perform validation.
+
+### Example Implementation
+
+```php
+<?php
+
+define("SECRET_KEY","LICHTNET_SECRET_KEY");
+
+$token = $_POST["token"] ?? "";
+if(!$token) die("Token not found");
+
+/* Split token */
+$parts = explode(".", $token);
+if(count($parts) !== 2){
+    die("Invalid token format");
+}
+
+list($b64, $sign) = $parts;
+
+/* Verify signature */
+$expected = hash_hmac("sha256", $b64, SECRET_KEY);
+if(!hash_equals($expected, $sign)){
+    die("Invalid token");
+}
+
+/* Decode data */
+$data = json_decode(base64_decode($b64), true);
+if(!$data){
+    die("Failed to decode data");
+}
+
+/* Check expiration */
+if($data["exp"] < time()){
+    die("Token has expired");
+}
+
+/* Login process */
+$email = $data["email"];
+$username = $data["username"];
+
+echo "Login successful<br>";
+echo "email: ".htmlspecialchars($email)."<br>";
+echo "username: ".htmlspecialchars($username);
+```
+
+---
+
+## 4. Available Data
+
+```json
+{
+  "email": "user@example.com",
+  "username": "user123",
+  "iat": 1680000000,
+  "exp": 1680000120
+}
+```
+
+* email: Email address
+* username: Username
+* iat: Issued at
+* exp: Expiration time
+
+---
+
+## 5. Security Notes
+
+* Always use HTTPS
+* Tokens must be used only once and must not be reused
+* Use the callback page exclusively for login processing
+* Do not store tokens; convert them into sessions instead
+
+---
+
+## 6. Flow Overview
+
+```
+Your Site
+  ↓
+Login Button
+  ↓
+Lichtnet Login Page
+  ↓
+Authentication Success
+  ↓
+callback.php (Receive Token)
+  ↓
+Validation
+  ↓
+Login Complete
+```
+
+---
+
+## 7. Common Issues
+
+* The URL does not match the registered one
+* Difference between HTTP and HTTPS
+* Trailing slash mismatch in URL
+* Receiving via GET instead of POST
+
+---
+
+## Summary
+
+The required steps for integration are:
+
+1. Add the login button
+2. Create a callback page
+3. Implement token validation
+
+
+---
+
 # Lichtnetログイン導入ガイド（外部サイト管理者様向け）
 
 Lichtnetログインを導入すると、
